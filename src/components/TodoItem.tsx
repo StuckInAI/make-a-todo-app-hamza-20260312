@@ -13,152 +13,153 @@ interface Todo {
 
 interface TodoItemProps {
   todo: Todo;
-  onToggle: (id: number, completed: boolean) => Promise<void>;
-  onUpdate: (id: number, title: string, description: string) => Promise<void>;
-  onDelete: (id: number) => Promise<void>;
+  onUpdated: () => void;
+  onDeleted: () => void;
 }
 
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-export default function TodoItem({ todo, onToggle, onUpdate, onDelete }: TodoItemProps) {
-  const [isEditing, setIsEditing] = useState(false);
+export default function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
+  const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(todo.title);
   const [editDescription, setEditDescription] = useState(todo.description || '');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [toggling, setToggling] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
+  const [editError, setEditError] = useState('');
 
-  async function handleToggle() {
-    setToggling(true);
-    try {
-      await onToggle(todo.id, !todo.completed);
-    } finally {
-      setToggling(false);
-    }
-  }
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) +
+      ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  };
 
-  async function handleSaveEdit() {
-    if (!editTitle.trim()) {
-      setEditError('Title cannot be empty.');
-      return;
-    }
-    setEditError(null);
-    setSaving(true);
+  const handleToggle = async () => {
     try {
-      await onUpdate(todo.id, editTitle.trim(), editDescription.trim());
-      setIsEditing(false);
+      const res = await fetch(`/api/todos/${todo.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: !todo.completed }),
+      });
+      if (res.ok) onUpdated();
     } catch {
-      setEditError('Failed to update. Please try again.');
-    } finally {
-      setSaving(false);
+      console.error('Failed to toggle todo');
     }
-  }
+  };
 
-  function handleCancelEdit() {
-    setEditTitle(todo.title);
-    setEditDescription(todo.description || '');
-    setEditError(null);
-    setIsEditing(false);
-  }
-
-  async function handleDelete() {
-    if (!confirm(`Delete "${todo.title}"? This cannot be undone.`)) return;
+  const handleDelete = async () => {
+    if (!confirm('Delete this todo?')) return;
     setDeleting(true);
     try {
-      await onDelete(todo.id);
+      const res = await fetch(`/api/todos/${todo.id}`, { method: 'DELETE' });
+      if (res.ok) onDeleted();
+    } catch {
+      console.error('Failed to delete todo');
     } finally {
       setDeleting(false);
     }
-  }
+  };
+
+  const handleEditSave = async () => {
+    const trimmedTitle = editTitle.trim();
+    if (!trimmedTitle) {
+      setEditError('Title cannot be empty.');
+      return;
+    }
+    setSaving(true);
+    setEditError('');
+    try {
+      const res = await fetch(`/api/todos/${todo.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: trimmedTitle,
+          description: editDescription.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setEditError(data.error || 'Failed to update.');
+        return;
+      }
+      setEditing(false);
+      onUpdated();
+    } catch {
+      setEditError('Network error.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditCancel = () => {
+    setEditing(false);
+    setEditTitle(todo.title);
+    setEditDescription(todo.description || '');
+    setEditError('');
+  };
 
   return (
     <div className={`todo-item${todo.completed ? ' completed' : ''}`}>
-      <div className="todo-header">
-        <input
-          type="checkbox"
+      <div className="todo-item-main">
+        <button
           className="todo-checkbox"
-          checked={todo.completed}
-          onChange={handleToggle}
-          disabled={toggling}
-          aria-label={todo.completed ? 'Mark as incomplete' : 'Mark as complete'}
-        />
+          onClick={handleToggle}
+          title={todo.completed ? 'Mark incomplete' : 'Mark complete'}
+          aria-label={todo.completed ? 'Mark incomplete' : 'Mark complete'}
+        >
+          {todo.completed && <span className="todo-checkbox-icon">✓</span>}
+        </button>
         <div className="todo-content">
           <div className="todo-title">{todo.title}</div>
           {todo.description && (
             <div className="todo-description">{todo.description}</div>
           )}
-          <div className="todo-meta">
-            <span className={`badge ${todo.completed ? 'badge-done' : 'badge-pending'}`}>
-              {todo.completed ? 'Done' : 'Pending'}
-            </span>
-            {' · '}
-            Created {formatDate(todo.createdAt)}
-          </div>
+          <div className="todo-meta">Created {formatDate(todo.createdAt)}</div>
         </div>
         <div className="todo-actions">
-          {!isEditing && (
-            <button
-              className="btn btn-ghost"
-              onClick={() => setIsEditing(true)}
-              disabled={deleting}
-              aria-label="Edit todo"
-            >
-              ✏️ Edit
-            </button>
-          )}
           <button
-            className="btn btn-danger"
+            className="btn-icon edit"
+            onClick={() => setEditing(!editing)}
+            title="Edit"
+            aria-label="Edit todo"
+          >
+            ✏️
+          </button>
+          <button
+            className="btn-icon danger"
             onClick={handleDelete}
-            disabled={deleting || saving}
+            disabled={deleting}
+            title="Delete"
             aria-label="Delete todo"
           >
-            {deleting ? '...' : '🗑️ Delete'}
+            {deleting ? '…' : '🗑️'}
           </button>
         </div>
       </div>
 
-      {isEditing && (
-        <div className="edit-form">
-          {editError && <div className="error-banner">{editError}</div>}
+      {editing && (
+        <div className="todo-edit-form">
+          {editError && <div className="error-msg">{editError}</div>}
           <input
             type="text"
+            className="edit-input"
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
-            placeholder="Title"
+            placeholder="Title *"
             disabled={saving}
-            maxLength={200}
+            maxLength={255}
           />
           <textarea
+            className="edit-textarea"
             value={editDescription}
             onChange={(e) => setEditDescription(e.target.value)}
-            placeholder="Description (optional)"
+            placeholder="Description (optional)…"
             disabled={saving}
             maxLength={1000}
           />
-          <div className="edit-form-actions">
-            <button
-              className="btn btn-success"
-              onClick={handleSaveEdit}
-              disabled={saving}
-            >
-              {saving ? 'Saving...' : '💾 Save'}
-            </button>
-            <button
-              className="btn btn-ghost"
-              onClick={handleCancelEdit}
-              disabled={saving}
-            >
+          <div className="edit-actions">
+            <button className="btn-cancel" onClick={handleEditCancel} disabled={saving}>
               Cancel
+            </button>
+            <button className="btn-save" onClick={handleEditSave} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
         </div>

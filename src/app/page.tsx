@@ -2,12 +2,11 @@ import TodoList from '@/components/TodoList';
 
 export default function Home() {
   return (
-    <main>
-      <div className="app-header">
-        <span className="app-icon">✅</span>
-        <h1>Todo App</h1>
+    <main className="main-container">
+      <div className="header">
+        <h1 className="app-title">📝 Todo App</h1>
+        <p className="app-subtitle">Stay organized, get things done</p>
       </div>
-      <p className="subtitle">Stay organised. Get things done.</p>
       <TodoList />
     </main>
   );

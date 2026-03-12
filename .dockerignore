@@ -1,9 +1,5 @@
 node_modules
 .next
+data
 .git
-*.db
-*.db-journal
-data/
 .env.local
-.env.*.local
-npm-debug.log*

@@ -4,37 +4,29 @@ import { Todo } from '@/entities/Todo';
 import path from 'path';
 import fs from 'fs';
 
-const dbPath = process.env.DATABASE_PATH || './data/todos.db';
-const resolvedDbPath = path.resolve(process.cwd(), dbPath);
-const dbDir = path.dirname(resolvedDbPath);
-
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __dataSource: DataSource | undefined;
-}
-
-const AppDataSource = global.__dataSource ??
-  new DataSource({
-    type: 'better-sqlite3',
-    database: resolvedDbPath,
-    synchronize: true,
-    logging: false,
-    entities: [Todo],
-  });
-
-if (!global.__dataSource) {
-  global.__dataSource = AppDataSource;
-}
+let dataSource: DataSource | null = null;
 
 export async function getDataSource(): Promise<DataSource> {
-  if (!AppDataSource.isInitialized) {
-    await AppDataSource.initialize();
+  if (dataSource && dataSource.isInitialized) {
+    return dataSource;
   }
-  return AppDataSource;
-}
 
-export default AppDataSource;
+  const dbPath = process.env.DATABASE_PATH || './data/todos.db';
+  const resolvedPath = path.resolve(process.cwd(), dbPath);
+  const dir = path.dirname(resolvedPath);
+
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  dataSource = new DataSource({
+    type: 'better-sqlite3',
+    database: resolvedPath,
+    entities: [Todo],
+    synchronize: true,
+    logging: false,
+  });
+
+  await dataSource.initialize();
+  return dataSource;
+}
