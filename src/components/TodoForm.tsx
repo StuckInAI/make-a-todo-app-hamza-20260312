@@ -1,71 +1,61 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 
 interface TodoFormProps {
-  onAdd: (title: string, description: string) => Promise<void>;
+  onSubmit: (title: string, description: string) => Promise<void>;
 }
 
-export default function TodoForm({ onAdd }: TodoFormProps) {
+export default function TodoForm({ onSubmit }: TodoFormProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
-      setError('Title is required');
-      return;
-    }
-    setError('');
-    setLoading(true);
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+    setSubmitting(true);
     try {
-      await onAdd(title.trim(), description.trim());
+      await onSubmit(trimmedTitle, description.trim());
       setTitle('');
       setDescription('');
-    } catch {
-      setError('Failed to add todo. Please try again.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
     <form className="todo-form" onSubmit={handleSubmit}>
-      <h2>✨ Add New Todo</h2>
-      {error && <div className="error-message">{error}</div>}
+      <h2>Add New Todo</h2>
       <div className="form-group">
-        <label htmlFor="todo-title">Title *</label>
+        <label htmlFor="title">Title *</label>
         <input
-          id="todo-title"
+          id="title"
           type="text"
-          className="form-input"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="What needs to be done?"
-          disabled={loading}
+          required
           autoComplete="off"
         />
       </div>
       <div className="form-group">
-        <label htmlFor="todo-description">Description</label>
+        <label htmlFor="description">Description (optional)</label>
         <textarea
-          id="todo-description"
-          className="form-textarea"
+          id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Add more details (optional)..."
-          disabled={loading}
-          rows={3}
+          placeholder="Add more details..."
+          rows={2}
         />
       </div>
       <button
         type="submit"
-        className="form-submit-btn"
-        disabled={loading || !title.trim()}
+        className="btn btn-primary"
+        disabled={submitting || !title.trim()}
       >
-        {loading ? 'Adding...' : '+ Add Todo'}
+        {submitting ? 'Adding...' : '+ Add Todo'}
       </button>
     </form>
   );

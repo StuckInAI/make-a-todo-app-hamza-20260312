@@ -1,33 +1,45 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
-import { Todo } from '@/entities/Todo';
+import { Todo } from '../entities/Todo';
 import path from 'path';
 import fs from 'fs';
 
-const dbPath = process.env.DATABASE_PATH || './data/todos.db';
-const resolvedDbPath = path.resolve(process.cwd(), dbPath);
+const DATABASE_PATH = process.env.DATABASE_PATH || './data/todos.db';
 
-// Ensure directory exists
+// Resolve the database path
+const resolvedDbPath = path.isAbsolute(DATABASE_PATH)
+  ? DATABASE_PATH
+  : path.resolve(process.cwd(), DATABASE_PATH);
+
+// Ensure the directory exists
 const dbDir = path.dirname(resolvedDbPath);
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-let dataSource: DataSource | null = null;
+declare global {
+  // eslint-disable-next-line no-var
+  var _dataSource: DataSource | undefined;
+}
 
-export async function getDataSource(): Promise<DataSource> {
-  if (dataSource && dataSource.isInitialized) {
-    return dataSource;
-  }
-
-  dataSource = new DataSource({
+const AppDataSource = global._dataSource ||
+  new DataSource({
     type: 'better-sqlite3',
     database: resolvedDbPath,
-    entities: [Todo],
     synchronize: true,
     logging: false,
+    entities: [Todo],
   });
 
-  await dataSource.initialize();
-  return dataSource;
+if (process.env.NODE_ENV !== 'production') {
+  global._dataSource = AppDataSource;
 }
+
+export async function getDataSource(): Promise<DataSource> {
+  if (!AppDataSource.isInitialized) {
+    await AppDataSource.initialize();
+  }
+  return AppDataSource;
+}
+
+export { AppDataSource };

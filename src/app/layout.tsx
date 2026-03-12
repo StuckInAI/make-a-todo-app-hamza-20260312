@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Todo App',
-  description: 'A fullstack todo application built with Next.js and TypeORM',
+  description: 'A fullstack Todo application built with Next.js and TypeORM',
 };
 
 export default function RootLayout({

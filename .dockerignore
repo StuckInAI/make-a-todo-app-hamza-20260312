@@ -1,4 +1,10 @@
 node_modules
 .next
-data
 .git
+.gitignore
+*.md
+Dockerfile
+docker-compose.yml
+.env.local
+.env.development
+.env.test

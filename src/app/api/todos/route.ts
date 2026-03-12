@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getDataSource } from '@/lib/database';
-import { Todo } from '@/entities/Todo';
+import 'reflect-metadata';
+import { NextResponse } from 'next/server';
+import { getDataSource } from '../../../lib/database';
+import { Todo } from '../../../entities/Todo';
 
 export async function GET() {
   try {
-    const ds = await getDataSource();
-    const repo = ds.getRepository(Todo);
-    const todos = await repo.find({
+    const dataSource = await getDataSource();
+    const todoRepository = dataSource.getRepository(Todo);
+    const todos = await todoRepository.find({
       order: { createdAt: 'DESC' },
     });
     return NextResponse.json(todos);
@@ -19,28 +20,28 @@ export async function GET() {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { title, description } = body;
 
-    if (!title || typeof title !== 'string' || title.trim() === '') {
+    if (!title || typeof title !== 'string' || !title.trim()) {
       return NextResponse.json(
         { error: 'Title is required' },
         { status: 400 }
       );
     }
 
-    const ds = await getDataSource();
-    const repo = ds.getRepository(Todo);
+    const dataSource = await getDataSource();
+    const todoRepository = dataSource.getRepository(Todo);
 
-    const todo = repo.create({
+    const todo = todoRepository.create({
       title: title.trim(),
-      description: description ? description.trim() : null,
+      description: description?.trim() || null,
       completed: false,
     });
 
-    const saved = await repo.save(todo);
+    const saved = await todoRepository.save(todo);
     return NextResponse.json(saved, { status: 201 });
   } catch (error) {
     console.error('POST /api/todos error:', error);

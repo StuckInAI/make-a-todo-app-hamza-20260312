@@ -1,125 +1,81 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import TodoForm from './TodoForm';
-import TodoItem, { TodoData } from './TodoItem';
+import { Todo, FilterType } from '../app/page';
+import TodoItem from './TodoItem';
 
-export default function TodoList() {
-  const [todos, setTodos] = useState<TodoData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+interface TodoListProps {
+  todos: Todo[];
+  loading: boolean;
+  filter: FilterType;
+  setFilter: (filter: FilterType) => void;
+  totalCount: number;
+  onToggle: (id: number) => Promise<void>;
+  onUpdate: (id: number, title: string, description: string) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+}
 
-  const fetchTodos = useCallback(async () => {
-    try {
-      setError('');
-      const res = await fetch('/api/todos');
-      if (!res.ok) throw new Error('Failed to fetch todos');
-      const data = await res.json();
-      setTodos(data);
-    } catch {
-      setError('Failed to load todos. Please refresh the page.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchTodos();
-  }, [fetchTodos]);
-
-  const handleAdd = async (title: string, description: string) => {
-    const res = await fetch('/api/todos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, description: description || null }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to create todo');
-    }
-    const newTodo = await res.json();
-    setTodos((prev) => [newTodo, ...prev]);
-  };
-
-  const handleToggle = async (id: number, completed: boolean) => {
-    const res = await fetch(`/api/todos/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ completed }),
-    });
-    if (!res.ok) throw new Error('Failed to update todo');
-    const updated = await res.json();
-    setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
-  };
-
-  const handleDelete = async (id: number) => {
-    const res = await fetch(`/api/todos/${id}`, {
-      method: 'DELETE',
-    });
-    if (!res.ok) throw new Error('Failed to delete todo');
-    setTodos((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  const handleUpdate = async (id: number, title: string, description: string) => {
-    const res = await fetch(`/api/todos/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, description: description || null }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to update todo');
-    }
-    const updated = await res.json();
-    setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
-  };
-
-  const completedCount = todos.filter((t) => t.completed).length;
-  const pendingCount = todos.length - completedCount;
-
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="spinner" />
-        <p>Loading your todos...</p>
-      </div>
-    );
-  }
+export default function TodoList({
+  todos,
+  loading,
+  filter,
+  setFilter,
+  totalCount,
+  onToggle,
+  onUpdate,
+  onDelete,
+}: TodoListProps) {
+  const filters: { key: FilterType; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'active', label: 'Active' },
+    { key: 'completed', label: 'Completed' },
+  ];
 
   return (
     <div>
-      <TodoForm onAdd={handleAdd} />
+      <div className="todo-list-header">
+        <h2>My Todos</h2>
+        <span className="todo-count">{totalCount}</span>
+      </div>
 
-      {error && <div className="error-message">{error}</div>}
+      <div className="filter-tabs">
+        {filters.map((f) => (
+          <button
+            key={f.key}
+            className={`filter-tab ${filter === f.key ? 'active' : ''}`}
+            onClick={() => setFilter(f.key)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
 
-      {todos.length > 0 && (
-        <div className="stats-bar">
-          <span>
-            <strong>{todos.length}</strong> total · <strong>{pendingCount}</strong> pending · <strong>{completedCount}</strong> completed
-          </span>
-          <span>
-            {completedCount > 0 && pendingCount === 0
-              ? '🎉 All done!'
-              : `${Math.round((completedCount / todos.length) * 100)}% complete`}
-          </span>
+      {loading ? (
+        <div className="loading">
+          <div className="spinner" />
+          <p>Loading todos...</p>
         </div>
-      )}
-
-      {todos.length === 0 ? (
+      ) : todos.length === 0 ? (
         <div className="todo-empty">
-          <div className="empty-icon">📋</div>
-          <p>No todos yet!</p>
-          <p>Add your first todo above to get started.</p>
+          <div className="empty-icon">
+            {filter === 'completed' ? '🎉' : filter === 'active' ? '🎯' : '📝'}
+          </div>
+          <p>
+            {filter === 'completed'
+              ? 'No completed todos yet.'
+              : filter === 'active'
+              ? 'No active todos. Great job!'
+              : 'No todos yet. Add one above!'}
+          </p>
         </div>
       ) : (
-        <div className="todo-list">
+        <div className="todos-container">
           {todos.map((todo) => (
             <TodoItem
               key={todo.id}
               todo={todo}
-              onToggle={handleToggle}
-              onDelete={handleDelete}
-              onUpdate={handleUpdate}
+              onToggle={onToggle}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
             />
           ))}
         </div>
