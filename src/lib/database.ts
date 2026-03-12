@@ -4,6 +4,15 @@ import { Todo } from '@/entities/Todo';
 import path from 'path';
 import fs from 'fs';
 
+const dbPath = process.env.DATABASE_PATH || './data/todos.db';
+const resolvedDbPath = path.resolve(process.cwd(), dbPath);
+
+// Ensure directory exists
+const dbDir = path.dirname(resolvedDbPath);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
 let dataSource: DataSource | null = null;
 
 export async function getDataSource(): Promise<DataSource> {
@@ -11,17 +20,9 @@ export async function getDataSource(): Promise<DataSource> {
     return dataSource;
   }
 
-  const dbPath = process.env.DATABASE_PATH || './data/todos.db';
-  const resolvedPath = path.resolve(process.cwd(), dbPath);
-  const dir = path.dirname(resolvedPath);
-
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-
   dataSource = new DataSource({
     type: 'better-sqlite3',
-    database: resolvedPath,
+    database: resolvedDbPath,
     entities: [Todo],
     synchronize: true,
     logging: false,

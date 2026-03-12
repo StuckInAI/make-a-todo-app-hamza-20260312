@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-interface Todo {
+export interface TodoData {
   id: number;
   title: string;
   description: string | null;
@@ -12,154 +12,179 @@ interface Todo {
 }
 
 interface TodoItemProps {
-  todo: Todo;
-  onUpdated: () => void;
-  onDeleted: () => void;
+  todo: TodoData;
+  onToggle: (id: number, completed: boolean) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+  onUpdate: (id: number, title: string, description: string) => Promise<void>;
 }
 
-export default function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
+export default function TodoItem({
+  todo,
+  onToggle,
+  onDelete,
+  onUpdate,
+}: TodoItemProps) {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(todo.title);
   const [editDescription, setEditDescription] = useState(todo.description || '');
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [editError, setEditError] = useState('');
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) +
-      ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const handleToggle = async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`/api/todos/${todo.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: !todo.completed }),
-      });
-      if (res.ok) onUpdated();
-    } catch {
-      console.error('Failed to toggle todo');
+      await onToggle(todo.id, !todo.completed);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Delete this todo?')) return;
-    setDeleting(true);
+    if (!confirm('Are you sure you want to delete this todo?')) return;
+    setLoading(true);
     try {
-      const res = await fetch(`/api/todos/${todo.id}`, { method: 'DELETE' });
-      if (res.ok) onDeleted();
-    } catch {
-      console.error('Failed to delete todo');
+      await onDelete(todo.id);
     } finally {
-      setDeleting(false);
+      setLoading(false);
     }
   };
 
-  const handleEditSave = async () => {
-    const trimmedTitle = editTitle.trim();
-    if (!trimmedTitle) {
-      setEditError('Title cannot be empty.');
+  const handleSaveEdit = async () => {
+    if (!editTitle.trim()) {
+      setEditError('Title cannot be empty');
       return;
     }
-    setSaving(true);
     setEditError('');
+    setLoading(true);
     try {
-      const res = await fetch(`/api/todos/${todo.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: trimmedTitle,
-          description: editDescription.trim() || null,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        setEditError(data.error || 'Failed to update.');
-        return;
-      }
+      await onUpdate(todo.id, editTitle.trim(), editDescription.trim());
       setEditing(false);
-      onUpdated();
     } catch {
-      setEditError('Network error.');
+      setEditError('Failed to update. Please try again.');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  const handleEditCancel = () => {
+  const handleCancelEdit = () => {
     setEditing(false);
     setEditTitle(todo.title);
     setEditDescription(todo.description || '');
     setEditError('');
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveEdit();
+    }
+    if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
   return (
-    <div className={`todo-item${todo.completed ? ' completed' : ''}`}>
-      <div className="todo-item-main">
+    <div className={`todo-item ${todo.completed ? 'completed' : 'pending'}`}>
+      <div className="todo-item-content">
         <button
-          className="todo-checkbox"
+          className={`todo-checkbox-btn ${todo.completed ? 'checked' : ''}`}
           onClick={handleToggle}
-          title={todo.completed ? 'Mark incomplete' : 'Mark complete'}
-          aria-label={todo.completed ? 'Mark incomplete' : 'Mark complete'}
+          disabled={loading}
+          title={todo.completed ? 'Mark as pending' : 'Mark as completed'}
+          aria-label={todo.completed ? 'Mark as pending' : 'Mark as completed'}
         >
-          {todo.completed && <span className="todo-checkbox-icon">✓</span>}
+          {todo.completed ? '✓' : ''}
         </button>
-        <div className="todo-content">
-          <div className="todo-title">{todo.title}</div>
+
+        <div className="todo-body">
+          <div className={`todo-title ${todo.completed ? 'completed-text' : ''}`}>
+            {todo.title}
+          </div>
           {todo.description && (
-            <div className="todo-description">{todo.description}</div>
+            <div className={`todo-description ${todo.completed ? 'completed-text' : ''}`}>
+              {todo.description}
+            </div>
           )}
-          <div className="todo-meta">Created {formatDate(todo.createdAt)}</div>
+          <div className="todo-meta">
+            <span className={`badge ${todo.completed ? 'badge-completed' : 'badge-pending'}`}>
+              {todo.completed ? '✓ Completed' : '◷ Pending'}
+            </span>
+            {' · '}
+            {formatDate(todo.createdAt)}
+          </div>
         </div>
+
         <div className="todo-actions">
+          {!editing && (
+            <button
+              className="action-btn edit-btn"
+              onClick={() => setEditing(true)}
+              disabled={loading}
+            >
+              ✏️ Edit
+            </button>
+          )}
           <button
-            className="btn-icon edit"
-            onClick={() => setEditing(!editing)}
-            title="Edit"
-            aria-label="Edit todo"
-          >
-            ✏️
-          </button>
-          <button
-            className="btn-icon danger"
+            className="action-btn delete-btn"
             onClick={handleDelete}
-            disabled={deleting}
-            title="Delete"
-            aria-label="Delete todo"
+            disabled={loading}
           >
-            {deleting ? '…' : '🗑️'}
+            🗑️ Delete
           </button>
         </div>
       </div>
 
       {editing && (
         <div className="todo-edit-form">
-          {editError && <div className="error-msg">{editError}</div>}
-          <input
-            type="text"
-            className="edit-input"
-            value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
-            placeholder="Title *"
-            disabled={saving}
-            maxLength={255}
-          />
-          <textarea
-            className="edit-textarea"
-            value={editDescription}
-            onChange={(e) => setEditDescription(e.target.value)}
-            placeholder="Description (optional)…"
-            disabled={saving}
-            maxLength={1000}
-          />
-          <div className="edit-actions">
-            <button className="btn-cancel" onClick={handleEditCancel} disabled={saving}>
-              Cancel
+          {editError && <div className="error-message">{editError}</div>}
+          <div className="form-group">
+            <input
+              type="text"
+              className="edit-input"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Todo title"
+              disabled={loading}
+              autoFocus
+            />
+          </div>
+          <div className="form-group">
+            <textarea
+              className="edit-textarea"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Description (optional)"
+              disabled={loading}
+              rows={2}
+            />
+          </div>
+          <div className="edit-form-actions">
+            <button
+              className="action-btn save-btn"
+              onClick={handleSaveEdit}
+              disabled={loading || !editTitle.trim()}
+            >
+              {loading ? 'Saving...' : '✓ Save'}
             </button>
-            <button className="btn-save" onClick={handleEditSave} disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
+            <button
+              className="action-btn cancel-btn"
+              onClick={handleCancelEdit}
+              disabled={loading}
+            >
+              ✕ Cancel
             </button>
           </div>
         </div>

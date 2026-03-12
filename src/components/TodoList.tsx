@@ -1,30 +1,21 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import TodoItem from './TodoItem';
+import { useState, useEffect, useCallback } from 'react';
 import TodoForm from './TodoForm';
-
-interface Todo {
-  id: number;
-  title: string;
-  description: string | null;
-  completed: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+import TodoItem, { TodoData } from './TodoItem';
 
 export default function TodoList() {
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const [todos, setTodos] = useState<TodoData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const fetchTodos = useCallback(async () => {
     try {
-      const res = await fetch('/api/todos');
-      if (!res.ok) throw new Error('Failed to fetch');
-      const data: Todo[] = await res.json();
-      setTodos(data);
       setError('');
+      const res = await fetch('/api/todos');
+      if (!res.ok) throw new Error('Failed to fetch todos');
+      const data = await res.json();
+      setTodos(data);
     } catch {
       setError('Failed to load todos. Please refresh the page.');
     } finally {
@@ -36,28 +27,89 @@ export default function TodoList() {
     fetchTodos();
   }, [fetchTodos]);
 
-  const completed = todos.filter((t) => t.completed).length;
-  const total = todos.length;
+  const handleAdd = async (title: string, description: string) => {
+    const res = await fetch('/api/todos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, description: description || null }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to create todo');
+    }
+    const newTodo = await res.json();
+    setTodos((prev) => [newTodo, ...prev]);
+  };
+
+  const handleToggle = async (id: number, completed: boolean) => {
+    const res = await fetch(`/api/todos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completed }),
+    });
+    if (!res.ok) throw new Error('Failed to update todo');
+    const updated = await res.json();
+    setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
+  };
+
+  const handleDelete = async (id: number) => {
+    const res = await fetch(`/api/todos/${id}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete todo');
+    setTodos((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const handleUpdate = async (id: number, title: string, description: string) => {
+    const res = await fetch(`/api/todos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, description: description || null }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to update todo');
+    }
+    const updated = await res.json();
+    setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
+  };
+
+  const completedCount = todos.filter((t) => t.completed).length;
+  const pendingCount = todos.length - completedCount;
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="spinner" />
+        <p>Loading your todos...</p>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <TodoForm onTodoAdded={fetchTodos} />
+      <TodoForm onAdd={handleAdd} />
 
-      {error && <div className="error-msg">{error}</div>}
+      {error && <div className="error-message">{error}</div>}
 
-      <div className="stats-bar">
-        <div className="stat-chip">Total: <span>{total}</span></div>
-        <div className="stat-chip">Completed: <span>{completed}</span></div>
-        <div className="stat-chip">Remaining: <span>{total - completed}</span></div>
-      </div>
+      {todos.length > 0 && (
+        <div className="stats-bar">
+          <span>
+            <strong>{todos.length}</strong> total · <strong>{pendingCount}</strong> pending · <strong>{completedCount}</strong> completed
+          </span>
+          <span>
+            {completedCount > 0 && pendingCount === 0
+              ? '🎉 All done!'
+              : `${Math.round((completedCount / todos.length) * 100)}% complete`}
+          </span>
+        </div>
+      )}
 
-      {loading ? (
-        <div className="loading-state">Loading todos…</div>
-      ) : todos.length === 0 ? (
-        <div className="empty-state">
+      {todos.length === 0 ? (
+        <div className="todo-empty">
           <div className="empty-icon">📋</div>
           <p>No todos yet!</p>
-          <small>Add your first todo above to get started.</small>
+          <p>Add your first todo above to get started.</p>
         </div>
       ) : (
         <div className="todo-list">
@@ -65,8 +117,9 @@ export default function TodoList() {
             <TodoItem
               key={todo.id}
               todo={todo}
-              onUpdated={fetchTodos}
-              onDeleted={fetchTodos}
+              onToggle={handleToggle}
+              onDelete={handleDelete}
+              onUpdate={handleUpdate}
             />
           ))}
         </div>

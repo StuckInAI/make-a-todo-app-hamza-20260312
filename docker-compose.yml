@@ -6,12 +6,12 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - '3000:3000'
+      - "3000:3000"
+    volumes:
+      - todo-data:/app/data
     environment:
       - DATABASE_PATH=./data/todos.db
       - NODE_ENV=production
-    volumes:
-      - todo-data:/app/data
     restart: unless-stopped
 
 volumes:

@@ -1,9 +1,6 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ['typeorm', 'better-sqlite3', 'reflect-metadata'],
-  },
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.externals = config.externals || [];
@@ -12,6 +9,9 @@ const nextConfig: NextConfig = {
       }
     }
     return config;
+  },
+  experimental: {
+    serverComponentsExternalPackages: ['typeorm', 'better-sqlite3', 'reflect-metadata'],
   },
 };
 

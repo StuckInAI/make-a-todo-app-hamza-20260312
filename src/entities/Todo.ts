@@ -15,7 +15,7 @@ export class Todo {
   @Column({ type: 'varchar', nullable: false })
   title!: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'text', nullable: true })
   description!: string | null;
 
   @Column({ type: 'boolean', default: false })

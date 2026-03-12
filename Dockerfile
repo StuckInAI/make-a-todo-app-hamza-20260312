@@ -1,6 +1,6 @@
 FROM node:20-alpine
 
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ sqlite
 
 WORKDIR /app
 
@@ -10,9 +10,9 @@ RUN npm i
 
 COPY . .
 
-RUN npm run build
+RUN mkdir -p data
 
-RUN mkdir -p /app/data
+RUN npm run build
 
 EXPOSE 3000
 

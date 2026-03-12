@@ -1,4 +1,3 @@
-import 'reflect-metadata';
 import { NextRequest, NextResponse } from 'next/server';
 import { getDataSource } from '@/lib/database';
 import { Todo } from '@/entities/Todo';
@@ -13,7 +12,10 @@ export async function GET() {
     return NextResponse.json(todos);
   } catch (error) {
     console.error('GET /api/todos error:', error);
-    return NextResponse.json({ error: 'Failed to fetch todos' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch todos' },
+      { status: 500 }
+    );
   }
 }
 
@@ -23,7 +25,10 @@ export async function POST(request: NextRequest) {
     const { title, description } = body;
 
     if (!title || typeof title !== 'string' || title.trim() === '') {
-      return NextResponse.json({ error: 'Title is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Title is required' },
+        { status: 400 }
+      );
     }
 
     const ds = await getDataSource();
@@ -39,6 +44,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(saved, { status: 201 });
   } catch (error) {
     console.error('POST /api/todos error:', error);
-    return NextResponse.json({ error: 'Failed to create todo' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to create todo' },
+      { status: 500 }
+    );
   }
 }

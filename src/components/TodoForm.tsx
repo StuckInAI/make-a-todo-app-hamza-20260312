@@ -3,10 +3,10 @@
 import { useState } from 'react';
 
 interface TodoFormProps {
-  onTodoAdded: () => void;
+  onAdd: (title: string, description: string) => Promise<void>;
 }
 
-export default function TodoForm({ onTodoAdded }: TodoFormProps) {
+export default function TodoForm({ onAdd }: TodoFormProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,33 +14,18 @@ export default function TodoForm({ onTodoAdded }: TodoFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
-      setError('Title is required.');
+    if (!title.trim()) {
+      setError('Title is required');
       return;
     }
-
-    setLoading(true);
     setError('');
-
+    setLoading(true);
     try {
-      const res = await fetch('/api/todos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: trimmedTitle, description: description.trim() }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || 'Failed to create todo.');
-        return;
-      }
-
+      await onAdd(title.trim(), description.trim());
       setTitle('');
       setDescription('');
-      onTodoAdded();
     } catch {
-      setError('Network error. Please try again.');
+      setError('Failed to add todo. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -48,35 +33,39 @@ export default function TodoForm({ onTodoAdded }: TodoFormProps) {
 
   return (
     <form className="todo-form" onSubmit={handleSubmit}>
-      <h2>✏️ Add New Todo</h2>
-      {error && <div className="error-msg">{error}</div>}
+      <h2>✨ Add New Todo</h2>
+      {error && <div className="error-message">{error}</div>}
       <div className="form-group">
-        <label htmlFor="title">Title *</label>
+        <label htmlFor="todo-title">Title *</label>
         <input
-          id="title"
+          id="todo-title"
           type="text"
           className="form-input"
-          placeholder="What needs to be done?"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          placeholder="What needs to be done?"
           disabled={loading}
-          maxLength={255}
+          autoComplete="off"
         />
       </div>
       <div className="form-group">
-        <label htmlFor="description">Description</label>
+        <label htmlFor="todo-description">Description</label>
         <textarea
-          id="description"
+          id="todo-description"
           className="form-textarea"
-          placeholder="Add more details (optional)…"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          placeholder="Add more details (optional)..."
           disabled={loading}
-          maxLength={1000}
+          rows={3}
         />
       </div>
-      <button type="submit" className="btn-submit" disabled={loading}>
-        {loading ? 'Adding…' : '+ Add Todo'}
+      <button
+        type="submit"
+        className="form-submit-btn"
+        disabled={loading || !title.trim()}
+      >
+        {loading ? 'Adding...' : '+ Add Todo'}
       </button>
     </form>
   );
